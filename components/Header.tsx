@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { WalletConnect } from './WalletConnect'
 
 export function Header() {
   return (
@@ -52,12 +53,16 @@ export function Header() {
           >
             Alerts
           </Link>
+          <Link
+            href="/news"
+            className="text-gray-300 hover:text-white transition"
+          >
+            News
+          </Link>
         </nav>
 
         {/* CTA */}
-        <button className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-semibold transition-all hover:scale-105">
-          Connect Wallet
-        </button>
+        <WalletConnect />
       </div>
     </header>
   )

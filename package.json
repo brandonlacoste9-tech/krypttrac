@@ -17,10 +17,23 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.53",
     "@anthropic-ai/sdk": "^0.38.0",
+    "@google-cloud/aiplatform": "^6.0.0",
+    "@google/generative-ai": "^0.24.1",
+    "@noble/ed25519": "^3.0.0",
+    "@supabase/supabase-js": "^2.90.1",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.0.0",
+    "framer-motion": "^11.0.0",
     "lucide-react": "^0.554.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "recharts": "^2.12.0",
+    "stripe": "^20.1.2",
+    "tailwind-merge": "^2.2.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/node": "^20",

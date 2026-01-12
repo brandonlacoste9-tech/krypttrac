@@ -1,41 +1,85 @@
 'use client'
 
 import Link from 'next/link'
-import { Zap } from 'lucide-react'
+import { Shield, Mail } from 'lucide-react'
 
 export function Footer() {
+  const currentYear = new Date().getFullYear()
+
   return (
-    <footer className="bg-slate-900/80 backdrop-blur-xl border-t border-purple-500/20 py-6">
-      <div className="container mx-auto px-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Left side - Data attribution */}
-          <div className="text-sm text-gray-400">
-            Data provided by CoinGecko API • Refreshes every 30s
+    <footer className="bg-slate-900/50 border-t border-slate-800 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          
+          {/* Brand */}
+          <div className="col-span-1 md:col-span-2">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-6 h-6 text-purple-400" />
+              <h3 className="text-xl font-bold text-white">Krypto Trac</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Fort Knox security for crypto. Zero passwords. Zero backdoors. Zero compromises.
+            </p>
+            <p className="text-gray-500 text-xs">
+              © {currentYear} Krypto Trac. All rights reserved.
+            </p>
           </div>
 
-          {/* Right side - Opus Magnum badge (clickable) */}
-          <Link
-            href="https://colony.io" // Replace with your actual Colony OS link
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center gap-2 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 border border-purple-500/30 hover:border-purple-500/60 rounded-xl px-4 py-2.5 transition-all hover:scale-105"
-          >
-            <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg p-1.5">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Powered by</p>
-              <p className="text-sm font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                OPUS MAGNUM
-              </p>
-              <p className="text-[10px] text-gray-500">Colony OS</p>
-            </div>
-          </Link>
+          {/* Legal */}
+          <div>
+            <h4 className="text-white font-semibold mb-4">Legal</h4>
+            <ul className="space-y-2">
+              <li>
+                <Link href="/terms" className="text-gray-400 hover:text-purple-400 text-sm transition-colors">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="text-gray-400 hover:text-purple-400 text-sm transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <a 
+                  href="/TRADEMARK_POLICY.md" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-purple-400 text-sm transition-colors"
+                >
+                  Trademark Policy
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Contact */}
+          <div>
+            <h4 className="text-white font-semibold mb-4">Contact</h4>
+            <ul className="space-y-2">
+              <li>
+                <a 
+                  href="mailto:kryptotrac@admin.com" 
+                  className="text-gray-400 hover:text-purple-400 text-sm transition-colors flex items-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  kryptotrac@admin.com
+                </a>
+              </li>
+              <li>
+                <Link href="/dashboard" className="text-gray-400 hover:text-purple-400 text-sm transition-colors">
+                  Dashboard
+                </Link>
+              </li>
+            </ul>
+          </div>
+
         </div>
 
-        {/* Bottom row - Copyright */}
-        <div className="mt-6 pt-6 border-t border-slate-800 text-center text-xs text-gray-500">
-          © {new Date().getFullYear()} Krypto Kings. Built for Kings 👑 Powered by premium technology.
+        {/* Trademark Notice */}
+        <div className="mt-8 pt-8 border-t border-slate-800">
+          <p className="text-gray-500 text-xs text-center">
+            Krypto Trac™, Fort Knox™, Sentinel AI™, and The Vault™ are trademarks of Krypto Trac.
+          </p>
         </div>
       </div>
     </footer>
