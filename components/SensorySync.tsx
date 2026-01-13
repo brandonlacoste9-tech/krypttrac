@@ -36,24 +36,20 @@ export default function SensorySync({ userId, onRadianceChange }: SensorySyncPro
       const pattern = hapticMap[event.type] || 'CONFIRM'
       triggerHaptic(pattern)
 
-      // Update edge radiance state
+      // Update edge radiance state (timeout handled by GlobalSensorySync)
       if (onRadianceChange) {
         switch (event.type) {
           case 'WINNING_SLOT':
           case 'TRADE_CLOSE':
           case 'SUCCESS':
             onRadianceChange('active')
-            // Reset to idle after 2 seconds
-            setTimeout(() => onRadianceChange?.('idle'), 2000)
             break
           case 'SENTINEL_NUDGE':
             onRadianceChange('sentinel')
-            setTimeout(() => onRadianceChange?.('idle'), 1000)
             break
           case 'VAULT_THUD':
           case 'SECURITY_ALERT':
             onRadianceChange('critical')
-            setTimeout(() => onRadianceChange?.('idle'), 3000)
             break
           default:
             onRadianceChange('idle')

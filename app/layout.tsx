@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { HapticProvider } from '@/components/HapticProvider'
+import GlobalSensorySync from '@/components/GlobalSensorySync'
 
 export const metadata: Metadata = {
   title: 'Krypto Kings - Built for Kings 👑',
@@ -27,7 +28,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <HapticProvider>
-          {children}
+          <GlobalSensorySync>
+            {children}
+          </GlobalSensorySync>
         </HapticProvider>
       </body>
     </html>

@@ -6,6 +6,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRadiance } from './GlobalSensorySync'
 
 export type RadianceState = 'idle' | 'active' | 'sentinel' | 'critical'
 
@@ -17,11 +18,14 @@ interface EdgeRadianceProps {
 }
 
 export default function EdgeRadiance({
-  state = 'idle',
+  state: propState = 'idle',
   intensity,
   className = '',
   children,
 }: EdgeRadianceProps) {
+  const globalRadiance = useRadiance()
+  // Use global radiance state if available, otherwise use prop
+  const state = globalRadiance.state !== 'idle' ? globalRadiance.state : propState
   const [glowIntensity, setGlowIntensity] = useState(0.1)
 
   useEffect(() => {
