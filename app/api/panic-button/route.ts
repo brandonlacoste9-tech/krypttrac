@@ -43,11 +43,14 @@ export async function POST(request: NextRequest) {
     
     const result = await response.json()
     
-    return NextResponse.json(result, { status: response.status })
-  } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      result,
+      {
+        status: response.status,
+        headers: getRateLimitHeaders(rateLimit.remaining, rateLimit.resetAt),
+      }
     )
+  } catch (error: any) {
+    return createSafeErrorResponse(error, 'Failed to activate panic button')
   }
 }
