@@ -321,11 +321,6 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       throw rpcError
     }
 
-    if (error) {
-      console.error('Error removing add-on from profile:', error)
-      throw error
-    }
-
     console.log(`Removed ${feature} add-on from user ${userId}`)
   } catch (error: any) {
     console.error('Failed to handle subscription deleted:', error)
