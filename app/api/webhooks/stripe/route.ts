@@ -8,9 +8,45 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
 
+/**
+ * Log webhook telemetry (non-blocking)
+ */
+async function logWebhookTelemetry(data: {
+  event_type: string
+  user_id?: string
+  feature?: string
+  status: 'success' | 'error'
+  duration_ms: number
+  error_message?: string
+  metadata?: Record<string, any>
+}) {
+  try {
+    // Try to log to Edge Function (if deployed)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    if (supabaseUrl && serviceKey) {
+      await fetch(`${supabaseUrl}/functions/v1/webhook-telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify(data),
+      }).catch(() => {
+        // Silently fail - telemetry should not block webhook processing
+      })
+    }
+  } catch {
+    // Silently fail - telemetry should not block webhook processing
+  }
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   let eventType = 'unknown'
+  let userId: string | undefined
+  let feature: string | undefined
   
   try {
     const body = await request.text()
@@ -34,6 +70,11 @@ export async function POST(request: NextRequest) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
       eventType = event.type
+      
+      // Extract user_id and feature from event metadata
+      const eventData = event.data.object as any
+      userId = eventData.metadata?.userId
+      feature = eventData.metadata?.feature
     } catch (err: any) {
       console.error('Webhook signature verification failed:', err.message)
       await logWebhookTelemetry({
@@ -49,30 +90,59 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle different event types
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
-        break
+    let handlerError: Error | null = null
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
+          break
 
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
-        break
+        case 'customer.subscription.updated':
+          await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
+          break
 
-      case 'customer.subscription.created':
-        await handleSubscriptionCreated(event.data.object as Stripe.Subscription)
-        break
+        case 'customer.subscription.created':
+          await handleSubscriptionCreated(event.data.object as Stripe.Subscription)
+          break
 
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
-        break
+        case 'customer.subscription.deleted':
+          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
+          break
 
-      default:
-        console.log(`Unhandled event type: ${event.type}`)
+        default:
+          console.log(`Unhandled event type: ${event.type}`)
+      }
+    } catch (err: any) {
+      handlerError = err
+      throw err
+    } finally {
+      // Log telemetry (non-blocking)
+      const eventData = event.data.object as any
+      await logWebhookTelemetry({
+        event_type: event.type,
+        user_id: userId || eventData.metadata?.userId,
+        feature: feature || eventData.metadata?.feature,
+        status: handlerError ? 'error' : 'success',
+        duration_ms: Date.now() - startTime,
+        error_message: handlerError?.message,
+        metadata: {
+          stripe_event_id: event.id,
+          stripe_customer_id: eventData.customer,
+        },
+      })
     }
 
     return NextResponse.json({ received: true })
   } catch (error: any) {
     console.error('Webhook handler error:', error)
+    await logWebhookTelemetry({
+      event_type: eventType,
+      user_id: userId,
+      feature: feature,
+      status: 'error',
+      duration_ms: Date.now() - startTime,
+      error_message: error.message || 'Internal server error',
+    })
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
