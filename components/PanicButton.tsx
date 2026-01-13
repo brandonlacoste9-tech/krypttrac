@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { useHaptics } from './HapticProvider'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -16,6 +17,7 @@ interface PanicButtonProps {
 }
 
 export default function PanicButton({ onLockdown }: PanicButtonProps) {
+  const haptics = useHaptics()
   const [isActivating, setIsActivating] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
 
@@ -62,10 +64,8 @@ export default function PanicButton({ onLockdown }: PanicButtonProps) {
       if (result.success) {
         setIsLocked(true)
         
-        // Haptic feedback (if supported)
-        if ('vibrate' in navigator) {
-          navigator.vibrate([200, 100, 200])
-        }
+        // Refined haptic feedback - Vault Thud pattern
+        haptics.events.vaultLocked()
 
         // Trigger UI update
         if (onLockdown) {

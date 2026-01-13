@@ -11,6 +11,9 @@ import { useRouter } from 'next/navigation'
 import PanicButton from './PanicButton'
 import MultiChainWalletView from './MultiChainWalletView'
 import AlphaFeed from './AlphaFeed'
+import EdgeRadiance from './EdgeRadiance'
+import AutoPilotToggle from './AutoPilotToggle'
+import { useHaptics } from './HapticProvider'
 import { getLockdownStatus, subscribeToSecurityAlerts, subscribeToLockdownStatus } from '@/lib/security/sentinel-client'
 import { getActiveBreakouts, subscribeToBreakouts } from '@/lib/momentum/breakout-client'
 import { getRevenueSummary, subscribeToRevenueUpdates } from '@/lib/revenue/dashboard'
@@ -31,6 +34,7 @@ interface WalletMenuProps {
 
 export default function WalletMenu({ userId }: WalletMenuProps) {
   const router = useRouter()
+  const haptics = useHaptics()
   const [isOpen, setIsOpen] = useState(false)
   const [securityScore, setSecurityScore] = useState<SecurityScore>({ score: 100, status: 'secure', threats: 0 })
   const [isLocked, setIsLocked] = useState(false)
@@ -38,6 +42,7 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
   const [activeBreakouts, setActiveBreakouts] = useState<any[]>([])
   const [revenue, setRevenue] = useState<any>(null)
   const [securityLogs, setSecurityLogs] = useState<any[]>([])
+  const [radianceState, setRadianceState] = useState<'idle' | 'active' | 'sentinel' | 'critical'>('idle')
 
   useEffect(() => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
@@ -53,6 +58,8 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
     const securityChannel = subscribeToSecurityAlerts(userId, (alert) => {
       if (alert.severity === 'critical') {
         setSecurityScore(prev => ({ ...prev, score: 0, status: 'critical', threats: prev.threats + 1 }))
+        setRadianceState('critical')
+        haptics.events.securityAlert()
       }
       loadSecurityLogs() // Refresh logs
     })
@@ -65,6 +72,10 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
     // Subscribe to breakouts
     const breakoutChannel = subscribeToBreakouts((signal) => {
       loadBreakouts() // Refresh breakouts
+      if (signal.confidence_score >= 80) {
+        setRadianceState('sentinel')
+        haptics.events.sentinelSignal()
+      }
     })
 
     // Subscribe to revenue updates
@@ -162,12 +173,16 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
       if (confirmed) {
         // In production, trigger MFA flow
         setVaultLocked(false)
+        setRadianceState('active')
+        haptics.events.confirm()
       }
     } else {
       // Lock vault
       const confirmed = window.confirm('Lock vault? This will revoke all API keys and clear cached secrets.')
       if (confirmed) {
         setVaultLocked(true)
+        setRadianceState('sentinel')
+        haptics.events.vaultLocked()
         // Call vault lock function
       }
     }
@@ -208,15 +223,29 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
     )
   }
 
+  // Update radiance state based on security score
+  useEffect(() => {
+    if (securityScore.status === 'critical') {
+      setRadianceState('critical')
+    } else if (securityScore.status === 'warning') {
+      setRadianceState('sentinel')
+    } else if (isOpen) {
+      setRadianceState('active')
+    } else {
+      setRadianceState('idle')
+    }
+  }, [securityScore.status, isOpen])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className={`
-        w-full max-w-md h-[90vh] rounded-2xl
-        bg-gradient-to-b from-[#1a1814] to-[#12100d]
-        border-2 ${securityScore.status === 'critical' ? 'border-red-600 animate-pulse' : 'border-yellow-600/30'}
-        shadow-2xl overflow-hidden
-        relative
-      `}>
+      <EdgeRadiance state={radianceState} className="w-full max-w-md h-[90vh]">
+        <div className={`
+          w-full h-full rounded-2xl
+          bg-gradient-to-b from-[#1a1814] to-[#12100d]
+          border border-yellow-600/20
+          shadow-2xl overflow-hidden
+          relative
+        `}>
         {/* Leather Texture Overlay */}
         <div className="absolute inset-0 opacity-30 pointer-events-none" 
           style={{ backgroundImage: 'url(https://www.transparenttextures.com/patterns/leather.png)' }}
@@ -304,14 +333,8 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
           <h3 className="text-yellow-400 text-sm font-bold uppercase mb-4 tracking-wider">AI & Monetization</h3>
           
           {/* Auto-Pilot Toggle */}
-          <div className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-yellow-600/20 mb-3">
-            <div>
-              <p className="text-xs text-yellow-400 font-bold">Auto-Pilot</p>
-              <p className="text-xs text-gray-400">Automated rebalancing</p>
-            </div>
-            <button className="px-4 py-1.5 bg-yellow-600 text-black text-xs font-bold rounded hover:bg-yellow-500">
-              Enable
-            </button>
+          <div className="mb-3">
+            <AutoPilotToggle userId={userId} />
           </div>
 
           {/* Alpha Feed */}
@@ -369,9 +392,14 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
 
         {/* Panic Button (Fixed Bottom) */}
         <div className="absolute bottom-6 right-6 z-20">
-          <PanicButton onLockdown={() => setIsLocked(true)} />
+          <PanicButton onLockdown={() => {
+            setIsLocked(true)
+            setRadianceState('critical')
+            haptics.events.vaultLocked()
+          }} />
         </div>
-      </div>
+        </div>
+      </EdgeRadiance>
     </div>
   )
 }
