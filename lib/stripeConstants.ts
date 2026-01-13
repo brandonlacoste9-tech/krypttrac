@@ -3,10 +3,10 @@
  */
 
 export const STRIPE_PRICES = {
-  CORE: 'price_1SosoMCzqBvMqSYFVV3lCc3q', // $10/mo
-  DEFI: 'price_1SosoSCzqBvMqSYF14JyKIhx', // $10/mo
-  WHALE: 'price_1SosoYCzqBvMqSYFs8uIc3vZ', // $5/mo
-  MAGNUM: 'price_1SosofCzqBvMqSYFUqAE9Plr', // $10/mo
+  CORE: process.env.NEXT_PUBLIC_STRIPE_CORE_PRICE_ID || 'price_1SosoMCzqBvMqSYFVV3lCc3q',
+  DEFI: process.env.NEXT_PUBLIC_STRIPE_DEFI_PRICE_ID || 'price_1SosoSCzqBvMqSYF14JyKIhx',
+  WHALE: process.env.NEXT_PUBLIC_STRIPE_WHALE_PRICE_ID || 'price_1SosoYCzqBvMqSYFs8uIc3vZ',
+  MAGNUM: process.env.NEXT_PUBLIC_STRIPE_MAGNUM_PRICE_ID || 'price_1SosofCzqBvMqSYFUqAE9Plr',
 } as const
 
 export const FEATURE_NAMES = {

@@ -49,6 +49,11 @@ export function Footer() {
                   Trademark Policy
                 </a>
               </li>
+              <li>
+                <Link href="/whitepaper" className="text-gray-400 hover:text-purple-400 text-sm transition-colors">
+                  Technical Whitepaper
+                </Link>
+              </li>
             </ul>
           </div>
 
