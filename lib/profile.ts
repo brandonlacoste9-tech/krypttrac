@@ -2,21 +2,23 @@ import { supabase } from './supabase'
 
 export interface Profile {
   id: string
-  email: string
+  user_id: string
   add_ons: string[]
+  public_key?: string
   created_at: string
   updated_at: string
 }
 
 /**
  * Fetch user profile from Supabase
+ * Uses user_id column which references auth.users(id)
  */
 export async function getProfile(userId: string): Promise<Profile | null> {
   try {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single()
 
     if (error) {

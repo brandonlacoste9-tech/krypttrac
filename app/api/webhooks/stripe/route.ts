@@ -85,10 +85,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   try {
     // Check if user already has this add-on (idempotency)
+    // Note: userId from Stripe metadata is auth.users.id, which maps to profiles.user_id
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('add_ons')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single()
 
     if (profile && profile.add_ons?.includes(feature)) {
@@ -96,14 +97,15 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       return
     }
 
-    // Add feature to add_ons array using PostgreSQL array functions
+    // Add feature to add_ons array using PostgreSQL function
+    // p_user_id expects auth.users.id (which is what userId is from Stripe metadata)
     const { error } = await supabaseAdmin.rpc('add_user_addon', {
-      user_id: userId,
-      addon: feature,
+      p_user_id: userId,
+      p_addon_name: feature,
     })
 
     // If RPC doesn't exist, use direct SQL
-    if (error && error.message.includes('function') || error.message.includes('does not exist')) {
+    if (error && (error.message.includes('function') || error.message.includes('does not exist'))) {
       const currentAddOns = profile?.add_ons || []
       const updatedAddOns = currentAddOns.includes(feature) 
         ? currentAddOns 
@@ -115,7 +117,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           add_ons: updatedAddOns,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', userId)
+        .eq('user_id', userId)
 
       if (updateError) {
         throw updateError
@@ -199,7 +201,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('add_ons')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single()
 
     if (!profile) {
@@ -207,17 +209,31 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       return
     }
 
-    // Remove feature from add_ons array
-    const currentAddOns = profile.add_ons || []
-    const updatedAddOns = currentAddOns.filter((addon: string) => addon !== feature)
+    // Remove feature from add_ons array using RPC function
+    const { error: rpcError } = await supabaseAdmin.rpc('remove_user_addon', {
+      p_user_id: userId,
+      p_addon_name: feature,
+    })
 
-    const { error } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        add_ons: updatedAddOns,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
+    // If RPC doesn't exist, use direct SQL
+    if (rpcError && (rpcError.message.includes('function') || rpcError.message.includes('does not exist'))) {
+      const currentAddOns = profile.add_ons || []
+      const updatedAddOns = currentAddOns.filter((addon: string) => addon !== feature)
+
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          add_ons: updatedAddOns,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+
+      if (updateError) {
+        throw updateError
+      }
+    } else if (rpcError) {
+      throw rpcError
+    }
 
     if (error) {
       console.error('Error removing add-on from profile:', error)
