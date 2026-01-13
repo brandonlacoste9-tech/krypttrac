@@ -80,14 +80,57 @@ serve(async (req) => {
         })
 
       if (error) {
-        // If table doesn't exist, log to console (non-blocking)
+        // Insert failed - write to dead-letter table for retry
         console.error('Webhook telemetry error:', error)
-        console.log('Webhook log (fallback):', JSON.stringify(logEntry))
+        
+        try {
+          await supabase
+            .from('dead_letter_webhook_logs')
+            .insert({
+              original_log_data: {
+                event_type: logEntry.event_type,
+                user_id: logEntry.user_id,
+                feature: logEntry.feature,
+                status: logEntry.status,
+                duration_ms: logEntry.duration_ms,
+                error_message: logEntry.error_message,
+                metadata: logEntry.metadata,
+                created_at: new Date().toISOString(),
+              },
+              failure_reason: error.message || 'Unknown error',
+              status: 'pending',
+            })
+        } catch (dlError: any) {
+          // Dead-letter insert also failed - log to console only
+          console.error('Dead-letter insert failed:', dlError)
+          console.log('Webhook log (fallback):', JSON.stringify(logEntry))
+        }
       }
     } catch (telemetryError: any) {
       // Non-blocking: telemetry failures should not break webhook processing
       console.error('Telemetry insert failed (non-blocking):', telemetryError)
-      // Could implement dead-letter queue here if needed
+      
+      // Attempt dead-letter write
+      try {
+        await supabase
+          .from('dead_letter_webhook_logs')
+          .insert({
+            original_log_data: {
+              event_type: logEntry.event_type,
+              user_id: logEntry.user_id,
+              feature: logEntry.feature,
+              status: logEntry.status,
+              duration_ms: logEntry.duration_ms,
+              error_message: logEntry.error_message,
+              metadata: logEntry.metadata,
+              created_at: new Date().toISOString(),
+            },
+            failure_reason: telemetryError.message || 'Unknown error',
+            status: 'pending',
+          })
+      } catch (dlError: any) {
+        console.error('Dead-letter insert failed:', dlError)
+      }
     }
 
     return new Response(
