@@ -8,6 +8,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { HapticEvents, triggerHaptic, HapticPattern, supportsHaptics } from '@/lib/haptics/casino-haptics'
+import { subscribeToSensoryEvents, SensoryEvent } from '@/lib/sensory/sensory-sync'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -43,9 +44,31 @@ export function HapticProvider({ userId, children }: HapticProviderProps) {
   }, [])
 
   useEffect(() => {
-    if (!userId || !enabled || !isSupported) return
+    if (!enabled || !isSupported) return
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+    // Subscribe to sensory sync events (Realtime broadcasts)
+    const sensoryChannel = subscribeToSensoryEvents((event: SensoryEvent) => {
+      // Filter by userId if provided
+      if (userId && event.userId && event.userId !== userId) {
+        return
+      }
+
+      // Map event type to haptic pattern
+      const hapticMap: Record<SensoryEvent['type'], HapticPattern> = {
+        WINNING_SLOT: 'SUCCESS',
+        SENTINEL_NUDGE: 'SENTINEL',
+        VAULT_THUD: 'LOCKDOWN',
+        TRADE_CLOSE: 'TRADE_CLOSE',
+        SECURITY_ALERT: 'ALERT',
+        SUCCESS: 'SUCCESS',
+        CONFIRM: 'CONFIRM',
+      }
+
+      const pattern = hapticMap[event.type] || 'CONFIRM'
+      triggerHaptic(pattern)
+    }, userId)
 
     // Subscribe to profitable trade events
     const tradeChannel = supabase
@@ -97,10 +120,13 @@ export function HapticProvider({ userId, children }: HapticProviderProps) {
       .subscribe()
 
     return () => {
-      tradeChannel.unsubscribe()
-      sentinelChannel.unsubscribe()
-      securityChannel.unsubscribe()
-      vaultChannel.unsubscribe()
+      sensoryChannel.unsubscribe()
+      if (userId) {
+        tradeChannel.unsubscribe()
+        sentinelChannel.unsubscribe()
+        securityChannel.unsubscribe()
+        vaultChannel.unsubscribe()
+      }
     }
   }, [userId, enabled, isSupported])
 

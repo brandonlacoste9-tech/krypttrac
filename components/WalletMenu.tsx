@@ -13,6 +13,7 @@ import MultiChainWalletView from './MultiChainWalletView'
 import AlphaFeed from './AlphaFeed'
 import EdgeRadiance from './EdgeRadiance'
 import AutoPilotToggle from './AutoPilotToggle'
+import SensorySync from './SensorySync'
 import { useHaptics } from './HapticProvider'
 import { getLockdownStatus, subscribeToSecurityAlerts, subscribeToLockdownStatus } from '@/lib/security/sentinel-client'
 import { getActiveBreakouts, subscribeToBreakouts } from '@/lib/momentum/breakout-client'
@@ -238,6 +239,11 @@ export default function WalletMenu({ userId }: WalletMenuProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      {/* Sensory Sync - Listens to Realtime broadcasts */}
+      <SensorySync 
+        userId={userId} 
+        onRadianceChange={setRadianceState}
+      />
       <EdgeRadiance state={radianceState} className="w-full max-w-md h-[90vh]">
         <div className={`
           w-full h-full rounded-2xl

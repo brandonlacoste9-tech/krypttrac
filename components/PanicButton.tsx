@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useHaptics } from './HapticProvider'
+import { triggerVaultThud } from '@/lib/sensory/sensory-sync'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -64,7 +65,12 @@ export default function PanicButton({ onLockdown }: PanicButtonProps) {
       if (result.success) {
         setIsLocked(true)
         
-        // Refined haptic feedback - Vault Thud pattern
+        // Refined haptic feedback - Vault Thud pattern with broadcast
+        triggerVaultThud(
+          'User-initiated panic button activation',
+          user.id,
+          true // Broadcast to all connected clients
+        )
         haptics.events.vaultLocked()
 
         // Trigger UI update

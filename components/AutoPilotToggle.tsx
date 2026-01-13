@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useHaptics } from './HapticProvider'
 import EdgeRadiance from './EdgeRadiance'
+import { triggerWinningSlot } from '@/lib/sensory/sensory-sync'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -38,7 +39,13 @@ export default function AutoPilotToggle({ userId }: AutoPilotToggleProps) {
       }, (payload) => {
         const transaction = payload.new as any
         if (transaction.profit_usd > 0 && transaction.executed_by === 'autopilot') {
-          // Trigger "Winning Slot" heartbeat haptic
+          // Trigger "Winning Slot" heartbeat haptic with broadcast
+          triggerWinningSlot(
+            transaction.profit_usd,
+            'USD',
+            userId,
+            true // Broadcast to all connected clients
+          )
           haptics.events.profitableTrade()
           setRecentProfit(transaction.profit_usd)
           
