@@ -27,10 +27,10 @@ CREATE TRIGGER normalize_profiles_add_ons
   EXECUTE FUNCTION public.normalize_add_ons();
 
 -- Enhancement 2: Composite index for user_id + add_ons lookups
--- Useful if you frequently query: WHERE user_id = X AND 'defi' = ANY(add_ons)
-CREATE INDEX IF NOT EXISTS idx_profiles_user_id_add_ons 
-ON public.profiles(user_id, add_ons) 
-USING GIN (add_ons);
+-- Note: GIN indexes can't combine UUID and array types directly
+-- The existing separate indexes (idx_profiles_user_id btree + idx_profiles_add_ons GIN) 
+-- are sufficient for composite queries. PostgreSQL will use both indexes efficiently.
+-- No additional index needed.
 
 -- Enhancement 3: Make public_key NOT NULL (if enforcing presence post-recovery)
 -- WARNING: Only run this if you want to enforce public_key after recovery
