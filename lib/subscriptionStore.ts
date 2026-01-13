@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { refreshUserAddOns } from './profile'
 
-type AddOn = 'core' | 'defi' | 'whale' | 'magnum'
+type AddOn = 'core' | 'defi' | 'whale' | 'magnum' | 'sovereign'
 
 interface SubscriptionState {
   addOns: AddOn[]
