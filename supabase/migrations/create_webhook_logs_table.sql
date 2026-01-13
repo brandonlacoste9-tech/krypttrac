@@ -75,13 +75,19 @@ BEGIN
   -- Check if pg_cron extension exists
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
     -- Unschedule if already exists
-    PERFORM cron.unschedule('cleanup-webhook-logs');
+    BEGIN
+      PERFORM cron.unschedule('cleanup-webhook-logs');
+    EXCEPTION
+      WHEN OTHERS THEN
+        -- Job doesn't exist yet, ignore
+        NULL;
+    END;
     
-    -- Schedule daily cleanup
+    -- Schedule daily cleanup (use single quotes for SQL string)
     PERFORM cron.schedule(
       'cleanup-webhook-logs',
       '0 2 * * *', -- Daily at 2 AM UTC
-      $$SELECT public.cleanup_old_webhook_logs()$$
+      'SELECT public.cleanup_old_webhook_logs()'
     );
     
     RAISE NOTICE 'Scheduled webhook logs cleanup job';
