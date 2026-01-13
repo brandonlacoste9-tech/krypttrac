@@ -9,9 +9,12 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import PanicButton from './PanicButton'
+import MultiChainWalletView from './MultiChainWalletView'
+import AlphaFeed from './AlphaFeed'
 import { getLockdownStatus, subscribeToSecurityAlerts, subscribeToLockdownStatus } from '@/lib/security/sentinel-client'
 import { getActiveBreakouts, subscribeToBreakouts } from '@/lib/momentum/breakout-client'
 import { getRevenueSummary, subscribeToRevenueUpdates } from '@/lib/revenue/dashboard'
+import { canAddWallet } from '@/lib/wallet/multi-chain-client'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
