@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRight, Sparkles, TrendingUp, Shield, Zap, Crown } from 'lucide-react'
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic'
+
 export default function Home() {
   const features = [
     { icon: <TrendingUp className="w-6 h-6" />, title: 'Real-Time Data', desc: 'Live prices updated every 30 seconds' },
