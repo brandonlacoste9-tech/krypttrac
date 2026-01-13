@@ -9,11 +9,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  let eventType = 'unknown'
+  
   try {
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')
 
     if (!signature) {
+      await logWebhookTelemetry({
+        event_type: 'stripe_webhook',
+        status: 'error',
+        duration_ms: Date.now() - startTime,
+        error_message: 'No signature provided',
+      })
       return NextResponse.json(
         { error: 'No signature provided' },
         { status: 400 }
@@ -24,8 +33,15 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+      eventType = event.type
     } catch (err: any) {
       console.error('Webhook signature verification failed:', err.message)
+      await logWebhookTelemetry({
+        event_type: 'stripe_webhook',
+        status: 'error',
+        duration_ms: Date.now() - startTime,
+        error_message: `Signature verification failed: ${err.message}`,
+      })
       return NextResponse.json(
         { error: `Webhook Error: ${err.message}` },
         { status: 400 }
