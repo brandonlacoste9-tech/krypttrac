@@ -70,54 +70,61 @@ export function HapticProvider({ userId, children }: HapticProviderProps) {
       triggerHaptic(pattern)
     }, userId)
 
-    // Subscribe to profitable trade events
-    const tradeChannel = supabase
-      .channel('haptic_trades')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'transactions',
-        filter: userId ? `user_id=eq.${userId}` : undefined,
-      }, (payload) => {
-        const transaction = payload.new as any
-        // If profitable trade, trigger success haptic
-        if (transaction.profit_usd > 0) {
-          HapticEvents.profitableTrade()
-        }
-      })
-      .subscribe()
+    // Subscribe to profitable trade events (only if userId provided)
+    let tradeChannel: any = null
+    let sentinelChannel: any = null
+    let securityChannel: any = null
+    let vaultChannel: any = null
 
-    // Subscribe to Sentinel AI signals
-    const sentinelChannel = supabase
-      .channel('haptic_sentinel')
-      .on('broadcast', { event: 'high_confidence_signal' }, () => {
-        HapticEvents.sentinelSignal()
-      })
-      .subscribe()
+    if (userId) {
+      tradeChannel = supabase
+        .channel('haptic_trades')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${userId}`,
+        }, (payload) => {
+          const transaction = payload.new as any
+          // If profitable trade, trigger success haptic
+          if (transaction.profit_usd > 0) {
+            HapticEvents.profitableTrade()
+          }
+        })
+        .subscribe()
 
-    // Subscribe to security alerts
-    const securityChannel = supabase
-      .channel('haptic_security')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'security_events',
-        filter: userId ? `user_id=eq.${userId}` : undefined,
-      }, (payload) => {
-        const event = payload.new as any
-        if (event.severity === 'critical') {
-          HapticEvents.securityAlert()
-        }
-      })
-      .subscribe()
+      // Subscribe to Sentinel AI signals
+      sentinelChannel = supabase
+        .channel('haptic_sentinel')
+        .on('broadcast', { event: 'high_confidence_signal' }, () => {
+          HapticEvents.sentinelSignal()
+        })
+        .subscribe()
 
-    // Subscribe to vault lock events
-    const vaultChannel = supabase
-      .channel('haptic_vault')
-      .on('broadcast', { event: 'vault_locked' }, () => {
-        HapticEvents.vaultLocked()
-      })
-      .subscribe()
+      // Subscribe to security alerts
+      securityChannel = supabase
+        .channel('haptic_security')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'security_events',
+          filter: `user_id=eq.${userId}`,
+        }, (payload) => {
+          const event = payload.new as any
+          if (event.severity === 'critical') {
+            HapticEvents.securityAlert()
+          }
+        })
+        .subscribe()
+
+      // Subscribe to vault lock events
+      vaultChannel = supabase
+        .channel('haptic_vault')
+        .on('broadcast', { event: 'vault_locked' }, () => {
+          HapticEvents.vaultLocked()
+        })
+        .subscribe()
+    }
 
     return () => {
       sensoryChannel.unsubscribe()
