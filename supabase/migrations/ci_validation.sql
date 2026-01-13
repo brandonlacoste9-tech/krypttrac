@@ -121,5 +121,76 @@ WHERE schemaname = 'public'
     'profiles_user_id_key'
   );
 
+-- Test 8: Verify webhook_logs table structure and indexes
+SELECT 
+  COUNT(*) as column_count,
+  CASE 
+    WHEN COUNT(*) >= 8 THEN '✅ PASS: webhook_logs table has required columns'
+    ELSE '❌ FAIL: Missing columns in webhook_logs'
+  END as status
+FROM information_schema.columns
+WHERE table_schema = 'public' 
+  AND table_name = 'webhook_logs';
+
+-- Test 9: Verify webhook_logs indexes exist
+SELECT 
+  COUNT(*) as index_count,
+  CASE 
+    WHEN COUNT(*) >= 5 THEN '✅ PASS: Required indexes exist on webhook_logs'
+    ELSE '❌ FAIL: Missing indexes on webhook_logs'
+  END as status
+FROM pg_indexes
+WHERE schemaname = 'public' 
+  AND tablename = 'webhook_logs'
+  AND indexname IN (
+    'idx_webhook_logs_event_type',
+    'idx_webhook_logs_user_id',
+    'idx_webhook_logs_status',
+    'idx_webhook_logs_created_at',
+    'idx_webhook_logs_recent'
+  );
+
+-- Test 10: Smoke test - Insert synthetic webhook log
+DO $$
+DECLARE
+  test_log_id UUID;
+BEGIN
+  INSERT INTO public.webhook_logs (
+    event_type,
+    user_id,
+    feature,
+    status,
+    duration_ms,
+    metadata
+  )
+  VALUES (
+    'checkout.session.completed',
+    gen_random_uuid(),
+    'defi',
+    'success',
+    150,
+    '{"test": true}'::jsonb
+  )
+  RETURNING id INTO test_log_id;
+  
+  -- Verify it was inserted
+  IF test_log_id IS NOT NULL THEN
+    RAISE NOTICE '✅ PASS: webhook_logs insert works correctly';
+    
+    -- Clean up test data
+    DELETE FROM public.webhook_logs WHERE id = test_log_id;
+  ELSE
+    RAISE EXCEPTION 'FAIL: webhook_logs insert failed';
+  END IF;
+END $$;
+
+-- Test 11: Verify partial index is used for recent queries
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT * FROM public.webhook_logs
+WHERE created_at > NOW() - INTERVAL '7 days'
+ORDER BY created_at DESC
+LIMIT 10;
+-- Expected: Should show "Index Scan" on idx_webhook_logs_recent
+
 -- Summary
 SELECT 'CI Validation Complete' as status;

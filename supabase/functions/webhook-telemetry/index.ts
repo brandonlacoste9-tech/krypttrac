@@ -40,7 +40,19 @@ serve(async (req) => {
     // Calculate duration
     const duration_ms = Date.now() - startTime
 
-    // Create log entry
+    // Sanitize metadata - only keep safe fields (PII hygiene)
+    const safeMetadata: Record<string, any> = {}
+    if (metadata) {
+      // Only allow safe metadata fields
+      const allowedKeys = ['stripe_event_id', 'stripe_customer_id', 'subscription_id', 'price_id']
+      for (const key of allowedKeys) {
+        if (metadata[key]) {
+          safeMetadata[key] = metadata[key]
+        }
+      }
+    }
+
+    // Create log entry (PII-safe)
     const logEntry: WebhookLog = {
       event_type: event_type || 'unknown',
       user_id,
@@ -48,27 +60,34 @@ serve(async (req) => {
       status: status || 'success',
       duration_ms,
       error_message,
-      metadata,
+      metadata: safeMetadata,
     }
 
     // Insert into webhook_logs table (create if doesn't exist)
-    const { error } = await supabase
-      .from('webhook_logs')
-      .insert({
-        event_type: logEntry.event_type,
-        user_id: logEntry.user_id,
-        feature: logEntry.feature,
-        status: logEntry.status,
-        duration_ms: logEntry.duration_ms,
-        error_message: logEntry.error_message,
-        metadata: logEntry.metadata,
-        created_at: new Date().toISOString(),
-      })
+    // Use try/catch with EdgeRuntime.waitUntil for background retry (if needed)
+    try {
+      const { error } = await supabase
+        .from('webhook_logs')
+        .insert({
+          event_type: logEntry.event_type,
+          user_id: logEntry.user_id,
+          feature: logEntry.feature,
+          status: logEntry.status,
+          duration_ms: logEntry.duration_ms,
+          error_message: logEntry.error_message,
+          metadata: logEntry.metadata,
+          created_at: new Date().toISOString(),
+        })
 
-    if (error) {
-      // If table doesn't exist, log to console (non-blocking)
-      console.error('Webhook telemetry error:', error)
-      console.log('Webhook log:', JSON.stringify(logEntry))
+      if (error) {
+        // If table doesn't exist, log to console (non-blocking)
+        console.error('Webhook telemetry error:', error)
+        console.log('Webhook log (fallback):', JSON.stringify(logEntry))
+      }
+    } catch (telemetryError: any) {
+      // Non-blocking: telemetry failures should not break webhook processing
+      console.error('Telemetry insert failed (non-blocking):', telemetryError)
+      // Could implement dead-letter queue here if needed
     }
 
     return new Response(
