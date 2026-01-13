@@ -108,18 +108,47 @@ Respond with JSON:
 }
 `
 
+    // Optimize prompt for deterministic JSON response
+    const jsonGuard = `
+IMPORTANT: You MUST respond with ONLY valid JSON. No markdown, no explanations, no code blocks.
+Expected JSON schema:
+{
+  "threat_detected": boolean,
+  "event_type": string,
+  "severity": "low" | "medium" | "high" | "critical",
+  "threat_signature": string,
+  "confidence": number (0-100),
+  "reasoning": string,
+  "recommended_action": string
+}
+`
+    const optimizedPrompt = prompt + '\n\n' + jsonGuard
+
     // Generate threat analysis
-    const result = await model.generateContent(prompt)
+    const result = await model.generateContent(optimizedPrompt)
     const response = result.response
     const analysisText = response.text()
 
-    // Parse analysis JSON
-    const jsonMatch = analysisText.match(/\{[\s\S]*\}/)
+    // Parse analysis JSON with validation
+    let cleaned = analysisText.trim()
+    cleaned = cleaned.replace(/^```json\s*/i, '')
+    cleaned = cleaned.replace(/^```\s*/i, '')
+    cleaned = cleaned.replace(/\s*```$/i, '')
+    
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       throw new Error('Failed to parse threat analysis JSON')
     }
 
     const analysis = JSON.parse(jsonMatch[0])
+    
+    // Validate required fields
+    if (typeof analysis.threat_detected !== 'boolean') {
+      throw new Error('Invalid threat_detected field')
+    }
+    if (!['low', 'medium', 'high', 'critical'].includes(analysis.severity)) {
+      throw new Error('Invalid severity value')
+    }
 
     // If threat detected, log security event
     if (analysis.threat_detected) {
