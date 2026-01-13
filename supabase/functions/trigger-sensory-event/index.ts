@@ -11,6 +11,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Rate limiting (simple in-memory for Edge Function)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(userId: string, maxRequests = 10, windowMs = 60000): boolean {
+  const now = Date.now()
+  const key = userId || 'anonymous'
+  const limit = rateLimitMap.get(key)
+  
+  if (!limit || now > limit.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs })
+    return true
+  }
+  
+  if (limit.count >= maxRequests) {
+    return false
+  }
+  
+  limit.count++
+  return true
+}
+
 interface SensoryEventRequest {
   type: 'WINNING_SLOT' | 'SENTINEL_NUDGE' | 'VAULT_THUD' | 'TRADE_CLOSE' | 'SECURITY_ALERT' | 'SUCCESS' | 'CONFIRM'
   user_id?: string
@@ -32,7 +53,26 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { type, user_id, metadata }: SensoryEventRequest = await req.json()
+    const body: SensoryEventRequest = await req.json()
+    
+    // Validate input
+    if (!body.type || !['WINNING_SLOT', 'SENTINEL_NUDGE', 'VAULT_THUD', 'TRADE_CLOSE', 'SECURITY_ALERT', 'SUCCESS', 'CONFIRM'].includes(body.type)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid event type' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+    
+    // Rate limiting
+    const identifier = body.user_id || 'anonymous'
+    if (!checkRateLimit(identifier, 10, 60000)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Rate limit exceeded' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+      )
+    }
+    
+    const { type, user_id, metadata } = body
 
     // Broadcast sensory event
     await supabase.channel('sensory_events').send({
